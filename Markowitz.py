@@ -113,6 +113,14 @@ class RiskParityPortfolio:
         """
         TODO: Complete Task 2 Below
         """
+        for i in range(self.lookback + 1, len(df)):
+            R_n = df_returns[assets].iloc[i - self.lookback : i]
+            stds = R_n.std(ddof=0)             # 使用過去 lookback 天的標準差
+            inv_vol = 1 / stds.replace(0, 1e-8) # 避免除以 0
+            weights = inv_vol / inv_vol.sum()  # 正規化
+
+            # 設定當日權重
+            self.portfolio_weights.loc[df.index[i], assets] = weights
 
         """
         TODO: Complete Task 2 Above
@@ -397,6 +405,7 @@ class AssignmentJudge:
 
     def check_answer_rp(self, rp_dataframe):
         answer_dataframe = pd.read_pickle(self.rp_path)
+        answer_dataframe.to_csv("rp_output.csv")
         if self.compare_dataframe(answer_dataframe, rp_dataframe):
             print("Problem 2 Complete - Get 20 Points")
             return 20
