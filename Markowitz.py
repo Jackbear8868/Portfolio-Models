@@ -196,8 +196,17 @@ class MeanVariancePortfolio:
 
                 # Sample Code: Initialize Decision w and the Objective
                 # NOTE: You can modify the following code
-                w = model.addMVar(n, name="w", ub=1)
-                model.setObjective(w.sum(), gp.GRB.MAXIMIZE)
+                # === Decision Variable ===
+                w = model.addMVar(n, name="w", lb=0.0)  # w_i >= 0 (long-only)
+
+                # === Objective ===
+                # Maximize: w^T * mu - gamma/2 * w^T * Sigma * w
+                mean_return = mu @ w
+                risk_penalty = (gamma / 2) * w @ Sigma @ w
+                model.setObjective(mean_return - risk_penalty, gp.GRB.MAXIMIZE)
+
+                # === Constraints ===
+                model.addConstr(w.sum() == 1, name="budget")
 
                 """
                 TODO: Complete Task 3 Above
@@ -405,7 +414,6 @@ class AssignmentJudge:
 
     def check_answer_rp(self, rp_dataframe):
         answer_dataframe = pd.read_pickle(self.rp_path)
-        answer_dataframe.to_csv("rp_output.csv")
         if self.compare_dataframe(answer_dataframe, rp_dataframe):
             print("Problem 2 Complete - Get 20 Points")
             return 20
