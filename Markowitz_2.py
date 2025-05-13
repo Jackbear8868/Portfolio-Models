@@ -69,6 +69,45 @@ class MyPortfolio:
         """
         TODO: Complete Task 4 Below
         """
+        w_df   = pd.DataFrame(index=self.price.index, columns=self.price.columns, dtype=float)
+
+        # 先給第一筆 (或前 lookback-1 筆) 均權，避免 NaN
+        w0 = pd.Series(1 / len(assets), index=assets)
+        w_df.loc[:, assets] = 0
+        w_df.iloc[0, w_df.columns.get_indexer(assets)] = w0.values
+
+        for t in range(1, len(self.price)):
+            if t < self.lookback:                       # 視窗不足 → 沿用前值
+                w_df.iloc[t] = w_df.iloc[t-1]
+                continue
+
+            # 1. 取滾動視窗報酬
+            window_r = self.returns[assets].iloc[t-self.lookback+1 : t+1]
+
+            # 2. μ, Σ
+            mu  = window_r.mean().values               # shape (n,)
+            cov = window_r.cov().values               # shape (n,n)
+
+            try:
+                inv_cov = np.linalg.pinv(cov)          # 廣義逆避免奇異
+                raw_w   = inv_cov @ mu                 # Σ⁻¹ μ
+            except (np.linalg.LinAlgError, ValueError):
+                raw_w = np.ones(len(assets))           # 回退均權
+
+            # 3. 非負 + 收縮
+            raw_w = np.maximum(raw_w, 0)
+            if raw_w.sum() == 0:                       # 全被截到 0 → 均權
+                raw_w = np.ones(len(assets))
+            w = raw_w / raw_w.sum()                    # 權重和 = 1
+            if self.gamma > 0:
+                w = w / (1 + self.gamma)              # 簡易收縮
+                w = w / w.sum()
+
+            # 4. 填入 DataFrame
+            w_df.iloc[t, w_df.columns.get_indexer(assets)] = w
+
+        w_df[self.exclude] = 0                         # 確保排除資產權重為 0
+        self.portfolio_weights = w_df.ffill().fillna(0)
 
         """
         TODO: Complete Task 4 Above
